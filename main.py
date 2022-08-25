@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from __future__ import print_function, absolute_import, division
+import argparse
 
 import logging
 import os
@@ -11,13 +12,13 @@ from threading import Lock
 from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
 
 
-class Loopback(LoggingMixIn, Operations):
+class LoopbackFs(LoggingMixIn, Operations):
     def __init__(self, root):
         self.root = realpath(root)
         self.rwlock = Lock()
 
     def __call__(self, op, path, *args):
-        return super(Loopback, self).__call__(op, self.root + path, *args)
+        return super(LoopbackFs, self).__call__(op, self.root + path, *args)
 
     def access(self, path, mode):
         if not os.access(path, mode):
@@ -26,7 +27,7 @@ class Loopback(LoggingMixIn, Operations):
     chmod = os.chmod
     chown = os.chown
 
-    def create(self, path, mode):
+    def create(self, path, mode, **kwargs):
         return os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, mode)
 
     def flush(self, path, fh):
@@ -94,13 +95,14 @@ class Loopback(LoggingMixIn, Operations):
             return os.write(fh, data)
 
 
-if __name__ == '__main__':
-    import argparse
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('root')
     parser.add_argument('mount')
     args = parser.parse_args()
-
     logging.basicConfig(level=logging.DEBUG)
-    fuse = FUSE(
-        Loopback(args.root), args.mount, foreground=True, allow_other=True)
+    FUSE(LoopbackFs(args.root), args.mount, foreground=True, allow_other=True)
+
+
+if __name__ == '__main__':
+    main()
